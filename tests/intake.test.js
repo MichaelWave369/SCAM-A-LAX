@@ -23,6 +23,11 @@ test('auto-detects a raw email from multiple standard headers', () => {
   assert.equal(detectIntakeMode(raw), 'email')
 })
 
+test('URL lists are not misclassified as speaker transcripts', () => {
+  const raw = 'https://scam.example/login\nhttps://refund-help.example/pay'
+  assert.equal(detectIntakeMode(raw), 'bulk')
+})
+
 test('parses selected email headers and preserves repeated Received hops', () => {
   const parsed = parseEmailHeaders([
     'Received: from first.example by second.example',
@@ -41,7 +46,7 @@ test('parses selected email headers and preserves repeated Received hops', () =>
   assert.equal(parsed.body, 'Body text')
 })
 
-test('email preview never silently commits and separates body for analyst choice', () => {
+test('raw email remains canonical while body preview is opt-in', () => {
   const preview = buildIntakePreview({
     mode: 'email',
     sourceLabel: 'victim Gmail export',
@@ -57,8 +62,9 @@ test('email preview never silently commits and separates body for analyst choice
 
   assert.equal(preview.records.length, 2)
   assert.equal(preview.records[0].kind, 'email')
+  assert.equal(preview.records[0].selected, true)
   assert.equal(preview.records[1].kind, 'message')
-  assert.equal(preview.records.every((record) => record.selected), true)
+  assert.equal(preview.records[1].selected, false)
   assert.match(preview.records[0].note, /victim Gmail export/)
 })
 
@@ -108,6 +114,7 @@ test('handoff profiles filter presentation without changing evidence authority',
 
   assert.equal(bank.derivedIntelligence.authority, 'NON_AUTHORITATIVE')
   assert.equal(bank.derivedIntelligence.analystLinks.length, 0)
+  assert.equal(bank.evidence.length, 2)
   assert.equal(law.derivedIntelligence.analystLinks.length, 1)
   assert.equal(law.evidence.length, 2)
 })
