@@ -21,16 +21,25 @@ test('extracts useful entities from evidence text', () => {
   assert(values.has('remote-access-id:anydesk 123456789'))
 })
 
-test('deduplicates an entity while preserving source references', () => {
+test('deduplicates equivalent explicitly country-coded phones', () => {
   const entities = extractEntitiesFromEvidence([
     evidence('ev-a', 'Call +1 415 555 0199.'),
-    evidence('ev-b', 'Same callback number: (415) 555-0199.'),
+    evidence('ev-b', 'Same callback number: +1 (415) 555-0199.'),
   ])
 
   const phone = entities.find((entity) => entity.type === 'phone')
   assert.equal(phone.value, '+14155550199')
   assert.equal(phone.sourceIds.length, 2)
   assert.equal(phone.occurrences, 2)
+})
+
+test('does not invent a country code for an ambiguous local phone', () => {
+  const entities = extractEntitiesFromEvidence([
+    evidence('ev-a', 'Country-coded: +1 415 555 0199.'),
+    evidence('ev-b', 'Unqualified local form: (415) 555-0199.'),
+  ]).filter((entity) => entity.type === 'phone')
+
+  assert.deepEqual(new Set(entities.map((entity) => entity.value)), new Set(['+14155550199', '4155550199']))
 })
 
 test('suppresses generic service domains from cross-case correlation', () => {
