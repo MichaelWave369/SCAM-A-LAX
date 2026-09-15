@@ -1,10 +1,11 @@
 {
   "name": "scam-a-lax",
-  "version": "0.4.20-alpha.0",
+  "version": "0.5.0-alpha.0",
   "private": false,
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "test": "node --test tests/*.test.js",
     "build": "vite build",
     "preview": "vite preview"
   },
