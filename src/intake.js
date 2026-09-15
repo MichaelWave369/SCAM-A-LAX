@@ -22,10 +22,12 @@ export function detectIntakeMode(text = '') {
     .filter((header) => new RegExp(`^${header.replace('-', '\\-')}`, 'im').test(value)).length
   if (headerHits >= 3) return 'email'
 
-  const lines = value.split('\n').filter(Boolean)
-  const transcriptHits = lines.filter((line) => (
-    /^\s*(?:\[[^\]]{1,40}\]\s*)?(?:[^:\n]{1,40}):\s+.+$/.test(line)
-  )).length
+  const lines = value.split('\n').map((line) => line.trim()).filter(Boolean)
+  const transcriptHits = lines.filter((line) => {
+    if (/^https?:\/\//i.test(line)) return false
+    if (/^(?:from|to|cc|subject|date|message-id|received):/i.test(line)) return false
+    return /^(?:\[[^\]]{1,40}\]\s*)?(?:[^:\n]{1,40}):\s+.+$/.test(line)
+  }).length
   if (lines.length >= 2 && transcriptHits / lines.length >= 0.5) return 'transcript'
 
   return 'bulk'
@@ -81,7 +83,7 @@ export function parseTranscript(text = '') {
     if (!trimmed) return
 
     const match = trimmed.match(/^(?:\[([^\]]{1,40})\]\s*)?([^:\n]{1,40}):\s+(.+)$/)
-    if (match) {
+    if (match && !/^https?$/i.test(match[2].trim())) {
       current = {
         timestamp: (match[1] || '').trim(),
         speaker: match[2].trim(),
@@ -128,12 +130,12 @@ export function suggestEvidenceKind(value = '') {
   return 'message'
 }
 
-function previewRecord(index, kind, value, note, sourceLabel) {
+function previewRecord(index, kind, value, note, sourceLabel, options = {}) {
   return {
     previewId: `preview-${index + 1}`,
-    selected: true,
+    selected: options.selected ?? true,
     kind,
-    state: 'OBSERVED',
+    state: options.state || 'OBSERVED',
     value: clean(value),
     note: clean([sourceLabel ? `Source: ${sourceLabel}` : '', note].filter(Boolean).join(' · ')),
   }
@@ -154,7 +156,14 @@ export function buildIntakePreview({ text = '', mode = 'auto', sourceLabel = '' 
 
     const records = [previewRecord(0, 'email', value, summary || 'Raw email source', sourceLabel)]
     if (parsed.body.trim()) {
-      records.push(previewRecord(1, 'message', parsed.body, 'Email body extracted from the same source.', sourceLabel))
+      records.push(previewRecord(
+        1,
+        'message',
+        parsed.body,
+        'Convenience body view derived from the raw email source. Select only if a separate record is useful.',
+        sourceLabel,
+        { selected: false },
+      ))
     }
     return { mode: resolvedMode, records, warnings, metadata: { email: parsed } }
   }
@@ -195,8 +204,8 @@ const PROFILE_CONFIG = {
   },
   bank: {
     title: 'Bank / Fraud Department',
-    evidenceKinds: ['payment', 'wallet', 'message', 'email', 'phone', 'url', 'note', 'file'],
-    entityTypes: ['phone', 'email', 'url', 'domain', 'crypto-wallet', 'payment-handle'],
+    evidenceKinds: ['payment', 'wallet', 'message', 'email', 'phone', 'url', 'remote-access', 'note', 'file'],
+    entityTypes: ['phone', 'email', 'url', 'domain', 'crypto-wallet', 'payment-handle', 'remote-access-id'],
     includeAnalystLinks: false,
     includeCaseNotes: true,
     caveat: 'Prepared for fraud review. Correlations and extracted entities remain investigative aids, not proof.',
