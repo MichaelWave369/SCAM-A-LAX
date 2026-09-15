@@ -9,6 +9,21 @@ export const ENTITY_TYPES = [
   'remote-access-id',
 ]
 
+const genericDomains = new Set([
+  'gmail.com',
+  'google.com',
+  'outlook.com',
+  'hotmail.com',
+  'live.com',
+  'yahoo.com',
+  'icloud.com',
+  'proton.me',
+  'protonmail.com',
+  'aol.com',
+  'microsoft.com',
+  'apple.com',
+])
+
 const patterns = [
   {
     type: 'email',
@@ -32,7 +47,7 @@ const patterns = [
   },
   {
     type: 'payment-handle',
-    re: /(?:\$|@)[A-Za-z0-9._-]{3,30}\b/g,
+    re: /(?<![A-Za-z0-9._%+-])(?:\$|@)[A-Za-z0-9._-]{3,30}\b/g,
     normalize: (value) => value.toLowerCase(),
   },
   {
@@ -116,12 +131,24 @@ export function extractEntitiesFromEvidence(evidence = []) {
   })
 }
 
+function isUsefulCorrelation(entity) {
+  if (entity.type === 'domain' && genericDomains.has(entity.value)) return false
+  if (entity.type === 'url') {
+    try {
+      if (genericDomains.has(canonicalDomain(new URL(entity.value).hostname))) return false
+    } catch {
+      return false
+    }
+  }
+  return true
+}
+
 export function getCrossCaseMatches(cases = [], activeCaseId) {
   const index = new Map()
 
   cases.forEach((item) => {
     const entities = extractEntitiesFromEvidence(item.evidence || [])
-    entities.forEach((entity) => {
+    entities.filter(isUsefulCorrelation).forEach((entity) => {
       const key = `${entity.type}:${entity.value}`
       if (!index.has(key)) index.set(key, [])
       index.get(key).push({ caseId: item.id, title: item.title, entity })
