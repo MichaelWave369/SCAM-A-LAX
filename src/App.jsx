@@ -165,7 +165,8 @@ function App() {
   const addEvidence = async (event) => {
     event.preventDefault()
     if (!activeCase) return
-    const data = new FormData(event.currentTarget)
+    const form = event.currentTarget
+    const data = new FormData(form)
     const kind = String(data.get('kind') || 'note')
     const state = String(data.get('state') || 'OBSERVED')
     const value = String(data.get('value') || '').trim()
@@ -203,7 +204,7 @@ function App() {
       evidence: [evidence, ...item.evidence],
       timeline: [{ id: uid('event'), at: recordedAt, text: `Evidence added: ${evidence.kind} (${evidence.state}).` }, ...item.timeline],
     }))
-    event.currentTarget.reset()
+    form.reset()
     if (fileRef.current) fileRef.current.value = ''
     setNotice('Evidence receipt added. Original file stayed on this device.')
   }
